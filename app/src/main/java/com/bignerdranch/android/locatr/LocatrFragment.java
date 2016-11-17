@@ -2,7 +2,10 @@ package com.bignerdranch.android.locatr;
 
 import android.Manifest;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.location.Location;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.v4.app.ActivityCompat;
@@ -20,6 +23,9 @@ import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
+
+import java.io.IOException;
+import java.util.List;
 
 public class LocatrFragment extends Fragment {
     private static final String TAG = "LocatrFragment";
@@ -114,7 +120,34 @@ public class LocatrFragment extends Fragment {
                     @Override
                     public void onLocationChanged(Location location) {
                         Log.i(TAG, "onLocationChanged: Got a fix: " + location);
+                        new SearchTask().execute(location);
                     }
                 });
+    }
+
+    private class SearchTask extends AsyncTask<Location, Void, Void> {
+        private GalleryItem galleryItem;
+        private Bitmap bitmap;
+
+        @Override
+        protected Void doInBackground(Location... params) {
+            FlickrFetchr fetchr = new FlickrFetchr();
+            List<GalleryItem> items = fetchr.searchPhotos(params[0]);
+            if (items.size() > 0) {
+                galleryItem = items.get(0);
+                try {
+                    byte[] bytes = fetchr.getUrlBytes(galleryItem.getUrl());
+                    bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
+                } catch (IOException ioe) {
+                    Log.i(TAG, "doInBackground: Unable to download bitmap ", ioe);
+                }
+            }
+            return null;
+        }
+
+        @Override
+        protected void onPostExecute(Void result) {
+            imageView.setImageBitmap(bitmap);
+        }
     }
 }
