@@ -1,6 +1,8 @@
 package com.bignerdranch.android.locatr;
 
 import android.Manifest;
+import android.app.ProgressDialog;
+import android.content.DialogInterface;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -128,6 +130,22 @@ public class LocatrFragment extends Fragment {
     private class SearchTask extends AsyncTask<Location, Void, Void> {
         private GalleryItem galleryItem;
         private Bitmap bitmap;
+        private ProgressDialog dialog;
+
+        @Override
+        protected void onPreExecute() {
+            dialog = ProgressDialog.show(getActivity(),
+                    "Request image",
+                    "The nearest image is fetching...",
+                    true,
+                    true,
+                    new DialogInterface.OnCancelListener() {
+                        @Override
+                        public void onCancel(DialogInterface dialog) {
+                            SearchTask.this.cancel(false);
+                        }
+                    });
+        }
 
         @Override
         protected Void doInBackground(Location... params) {
@@ -148,6 +166,7 @@ public class LocatrFragment extends Fragment {
         @Override
         protected void onPostExecute(Void result) {
             imageView.setImageBitmap(bitmap);
+            if (dialog.isShowing()) dialog.dismiss();
         }
     }
 }
