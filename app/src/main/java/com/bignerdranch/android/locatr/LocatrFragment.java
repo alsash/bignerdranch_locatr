@@ -9,29 +9,35 @@ import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.v4.app.ActivityCompat;
-import android.support.v4.app.Fragment;
 import android.util.Log;
-import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
-import android.view.View;
-import android.view.ViewGroup;
-import android.widget.ImageView;
 
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.maps.CameraUpdate;
+import com.google.android.gms.maps.CameraUpdateFactory;
+import com.google.android.gms.maps.GoogleMap;
+import com.google.android.gms.maps.OnMapReadyCallback;
+import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.UiSettings;
+import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.LatLngBounds;
 
 import java.io.IOException;
 import java.util.List;
 
-public class LocatrFragment extends Fragment {
+public class LocatrFragment extends SupportMapFragment {
     private static final String TAG = "LocatrFragment";
 
-    private ImageView imageView;
     private GoogleApiClient client;
+    private GoogleMap map;
+    private Bitmap mapImage;
+    private GalleryItem mapItem;
+    private Location currentLocation;
 
     public static LocatrFragment newInstance() {
         return new LocatrFragment();
@@ -54,6 +60,16 @@ public class LocatrFragment extends Fragment {
                     }
                 })
                 .build();
+        getMapAsync(new OnMapReadyCallback() {
+            @Override
+            public void onMapReady(GoogleMap googleMap) {
+                map = googleMap;
+                map.setMapType(GoogleMap.MAP_TYPE_NORMAL);
+                UiSettings ui = map.getUiSettings();
+                ui.setZoomControlsEnabled(true);
+                updateUi();
+            }
+        });
     }
 
     @Override
@@ -67,18 +83,6 @@ public class LocatrFragment extends Fragment {
     public void onStop() {
         super.onStop();
         client.disconnect();
-    }
-
-    @Nullable
-    @Override
-    public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container,
-                             @Nullable Bundle savedInstanceState) {
-
-        View rootView = inflater.inflate(R.layout.fragment_locatr, container, false);
-
-        imageView = (ImageView) rootView.findViewById(R.id.image);
-
-        return rootView;
     }
 
     @Override
@@ -125,29 +129,53 @@ public class LocatrFragment extends Fragment {
                 });
     }
 
+    private void updateUi() {
+        if (map == null || mapImage == null) return;
+        LatLng itemPoint = new LatLng(mapItem.getLat(), mapItem.getLon());
+        LatLng myPoint = new LatLng(currentLocation.getLatitude(), currentLocation.getLongitude());
+        LatLngBounds bounds = new LatLngBounds.Builder()
+                .include(itemPoint)
+                .include(myPoint)
+                .build();
+        int margin = getResources().getDimensionPixelSize(R.dimen.map_inset_margin);
+        CameraUpdate update = CameraUpdateFactory.newLatLngBounds(bounds, margin);
+        map.animateCamera(update);
+    }
+
     private class SearchTask extends AsyncTask<Location, Void, Void> {
         private GalleryItem galleryItem;
         private Bitmap bitmap;
+        private Location location;
 
         @Override
         protected Void doInBackground(Location... params) {
             FlickrFetchr fetchr = new FlickrFetchr();
-            List<GalleryItem> items = fetchr.searchPhotos(params[0]);
-            if (items.size() > 0) {
-                galleryItem = items.get(0);
+            location = params[0];
+            List<GalleryItem> items = fetchr.searchPhotos(location);
+            for (GalleryItem item : items) {
+                if (item.getUrl() != null) {
+                    galleryItem = item;
+                }
+            }
+            if (galleryItem != null) {
                 try {
                     byte[] bytes = fetchr.getUrlBytes(galleryItem.getUrl());
                     bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
                 } catch (IOException ioe) {
                     Log.i(TAG, "doInBackground: Unable to download bitmap ", ioe);
                 }
+            } else {
+                Log.i(TAG, "doInBackground: Image not found in: " + location);
             }
             return null;
         }
 
         @Override
         protected void onPostExecute(Void result) {
-            imageView.setImageBitmap(bitmap);
+            mapImage = bitmap;
+            mapItem = galleryItem;
+            currentLocation = location;
+            updateUi();
         }
     }
 }
