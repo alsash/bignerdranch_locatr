@@ -7,4 +7,4 @@ Bignerdranch training
 
 #
 
-[Download apk](../../raw/master/app/build/outputs/apk/app-debug.apk)
+[Download apk (exercise)](../../raw/exercise_chapter31/app/build/outputs/apk/app-debug.apk)
